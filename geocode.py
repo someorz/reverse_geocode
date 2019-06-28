@@ -6,9 +6,9 @@ author: ZhouJun
 mail: zhoujunseu@163.com
 
 """
-token = 'dd5fcef249d3ca80fda93359d9eee7b4'
-key = '6b1af7b5ebe7929f6706882073c1e3c4'
-ak = 'F7jPzhx979D8drV1T8ja6O6ADw0p2FUE'
+token = ''
+key = ''
+ak = ''
 
 import requests
 
