@@ -4,7 +4,6 @@ import json
 import os
 import ssl
 import sys
-import time
 import urllib.request as urllib2
 
 import pandas as pd
@@ -21,7 +20,7 @@ def amap_regeo(location, batch):
     appcode = 'bc40cc405f3c4f5dbb2b8f967100071d'
     querys = 'batch=' + batch + '&extensions=base&location=' + location + '&output=JSON'
     url = host + path + '?' + querys
-
+    log.info('querys:%s', querys)
     request = urllib2.Request(url)
     request.add_header('Authorization', 'APPCODE ' + appcode)
     ctx = ssl.create_default_context()
@@ -36,7 +35,7 @@ def amap_regeo(location, batch):
         return content
     except Exception:
         log.exception(sys.exc_info())
-        return 0
+        return '0'
 
 
 def chk_file(full_path):
@@ -66,50 +65,56 @@ def main():
     # 读原文件
     sdf = pd.read_csv(source_file, skiprows=range(1, skip_rows + 1),
                       converters={'lon': str, 'lat': str, 'city': str, 'provinces': str})
-    all_rows = sdf.shape[0]
+    all_rows = sdf.shape[0] + skip_rows
     batch_size = conf.getint("common", "batch_size")
 
     size = len(sdf)
     location_arr = []
     location_dic = {}
+    retry = 3
     for i in range(0, size):
-
         key = sdf.iloc[i]['lon'] + "," + sdf.iloc[i]['lat']
         val = (sdf.iloc[i]['city'], sdf.iloc[i]['provinces'])
         location_arr.append(key)
         location_dic[key] = val
         if ((i + 1) % batch_size == 0) or (size == i + 1):
-
+            data = []
             location = '|'.join(location_arr)
-            re = 0
+            re = '0'
             jsondata = ''
-            while re == 0:
-                time.sleep(0.2)
+            m = 0
+            while re == '0' and m < retry:
+                m += 1
                 re = amap_regeo(location, 'true')
-                if re != 0:
+                if re != '0':
                     # 取json中状态码
                     jsondata = json.loads(re)
                     log.info("调用逆地理返回:%s", jsondata)
                     re = jsondata.get('status')
-            regeocodes = jsondata.get('regeocodes')
-            regeocodes_size = len(regeocodes)
-            data = []
-            for j in range(0, regeocodes_size):
-                element = regeocodes[j]
-                addressComponent = element.get('addressComponent')
-                province_name = addressComponent.get('province')
-                city_name = addressComponent.get('city')
-                district_name = addressComponent.get('district')
-                district_code = addressComponent.get('adcode')
 
-                if district_code == '900000':
-                    continue
-                key = location_arr[j]
-                val = location_dic.get(key)
-                lonlat = key.split(',')
-                data.append(
-                    [val[1], province_name, val[0], city_name, district_code, district_name, lonlat[0], lonlat[1]])
-                log.info(data)
+            if re == '0':
+                log.error('调用失败的经纬度:%s', location_arr)
+            else:
+                regeocodes = jsondata.get('regeocodes')
+                regeocodes_size = len(regeocodes)
+
+                for j in range(0, regeocodes_size):
+                    element = regeocodes[j]
+                    addressComponent = element.get('addressComponent')
+                    province_name = addressComponent.get('province')
+                    city_name = addressComponent.get('city')
+                    district_name = addressComponent.get('district')
+                    district_code = addressComponent.get('adcode')
+
+                    if district_code == '900000':
+                        log.info("调用逆地理未解析出地址")
+                        continue
+                    key = location_arr[j]
+                    val = location_dic.get(key)
+                    lonlat = key.split(',')
+                    data.append(
+                        [val[1], province_name, val[0], city_name, district_code, district_name, lonlat[0], lonlat[1]])
+                    log.info(data)
 
             df = pd.DataFrame(data, columns=usecols)
             skip_rows += len(location_arr)
