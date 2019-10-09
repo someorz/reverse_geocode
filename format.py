@@ -3,7 +3,7 @@ import pandas as pd
 
 
 def main():
-    source_file = 'D:\\reversegeocode\\dim_provinces_coordinate1.csv'
+    source_file = 'D:\\reversegeocode\\dim_provinces_coordinate.csv'
     t_file = 'D:\\reversegeocode\\dim_provinces_coordinate2.csv'
     # 读原文件
     sdf = pd.read_csv(source_file)
