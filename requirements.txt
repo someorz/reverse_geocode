@@ -1,2 +1,2 @@
-pandas==0.25.1
 openpyxl==3.0.0
+pandas==0.25.1
